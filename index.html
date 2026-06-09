@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find The Error: HTML</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Font for Coding Aesthetic */
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Press+Start+2P&display=swap');
+
+        body {
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0;
+            font-family: 'Fira Code', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background-image: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%);
+        }
+
+        /* 16:9 Container */
+        .game-container {
+            width: 100%;
+            max-width: 1200px;
+            aspect-ratio: 16 / 9;
+            background-color: #1e1e1e; /* VS Code dark background */
+            border-radius: 12px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(56, 189, 248, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #334155;
+        }
+
+        /* Scanline effect for retro feel */
+        .game-container::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 10;
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+        }
+
+        .title-font {
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        /* Code Line Styles */
+        .code-line {
+            display: flex;
+            padding: 4px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .code-line:hover {
+            background-color: #2a2d3e;
+            border-left: 4px solid #38bdf8;
+        }
+
+        .line-number {
+            color: #858585;
+            width: 40px;
+            text-align: right;
+            margin-right: 16px;
+            user-select: none;
+        }
+
+        .code-content {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* Syntax Highlighting Colors */
+        .hl-tag { color: #569cd6; } /* Blue */
+        .hl-attr { color: #9cdcfe; } /* Light Blue */
+        .hl-string { color: #ce9178; } /* Orange */
+        .hl-comment { color: #6a9955; font-style: italic; } /* Green */
+        .hl-angle { color: #808080; } /* Gray for brackets */
+
+        /* Animations */
+        @keyframes pulse-red {
+            0% { background-color: rgba(239, 68, 68, 0.2); border-left-color: #ef4444; }
+            50% { background-color: rgba(239, 68, 68, 0.5); border-left-color: #ef4444; }
+            100% { background-color: rgba(239, 68, 68, 0.2); border-left-color: #ef4444; }
+        }
+
+        @keyframes pulse-green {
+            0% { background-color: rgba(34, 197, 94, 0.2); border-left-color: #22c55e; }
+            50% { background-color: rgba(34, 197, 94, 0.5); border-left-color: #22c55e; }
+            100% { background-color: transparent; border-left-color: transparent; }
+        }
+
+        .line-wrong { animation: pulse-red 0.5s ease; }
+        .line-correct { animation: pulse-green 1s ease forwards; pointer-events: none; }
+
+        /* Modal Styles */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            transition: opacity 0.3s;
+        }
+        
+        .hidden { display: none !important; }
+
+        /* Custom Scrollbar for code area */
+        #code-area::-webkit-scrollbar { width: 10px; }
+        #code-area::-webkit-scrollbar-track { background: #1e1e1e; }
+        #code-area::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; }
+        #code-area::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+    </style>
+</head>
+<body>
+
+    <div class="game-container shadow-2xl relative" id="game-container">
+        
+        <!-- Start Screen -->
+        <div id="start-screen" class="overlay flex-col text-center">
+            <h1 class="title-font text-4xl text-sky-400 mb-6 drop-shadow-[0_0_10px_rgba(56,189,248,0.8)]">FIND THE ERROR</h1>
+            <h2 class="text-2xl text-slate-300 mb-8">&lt;HTML Edition&gt;</h2>
+            <p class="mb-8 max-w-lg text-slate-400 leading-relaxed">
+                Welcome, Coder. Your mission is to debug 10 levels of broken HTML boilerplate code.<br><br>
+                Scan the lines carefully. Click on the line containing the syntax error to fix it and earn points.
+            </p>
+            <button onclick="startGame()" class="px-8 py-4 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg transition-transform transform hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(56,189,248,0.5)]">
+                INITIALIZE DEBUGGER
+            </button>
+        </div>
+
+        <!-- Top Header (Game Stats) -->
+        <div class="bg-slate-900 border-b border-slate-700 p-4 flex justify-between items-center z-20">
+            <div class="flex items-center gap-4">
+                <div class="text-sky-400 font-bold title-font text-sm md:text-base">Level: <span id="ui-level">1</span>/10</div>
+                <div class="text-emerald-400 font-bold title-font text-sm md:text-base">Score: <span id="ui-score">0</span></div>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="toggleMusic()" id="music-btn" class="p-2 bg-slate-800 rounded hover:bg-slate-700 transition-colors" title="Toggle Music">
+                    🔊
+                </button>
+            </div>
+        </div>
+
+        <!-- IDE Header (Visual only) -->
+        <div class="bg-[#2d2d2d] flex items-center px-4 py-2 border-b border-[#1e1e1e] z-20">
+            <div class="flex gap-2 mr-6">
+                <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+            </div>
+            <div class="bg-[#1e1e1e] text-slate-300 px-4 py-1 rounded-t-md text-sm flex items-center gap-2 border-t border-l border-r border-[#333]">
+                <span class="text-sky-400">&lt;/&gt;</span> index.html
+            </div>
+        </div>
+
+        <!-- Main Code Area -->
+        <div id="code-area" class="flex-1 overflow-y-auto py-4 z-20 text-sm md:text-base lg:text-lg">
+            <!-- Code lines injected here via JS -->
+        </div>
+
+        <!-- Bottom Feedback Panel -->
+        <div class="bg-[#007acc] text-white p-2 text-sm z-20 flex justify-between items-center px-4" id="status-bar">
+            <div id="feedback-msg" class="font-semibold">Ready to debug. Select a line to scan.</div>
+            <div class="text-sky-200">UTF-8 | HTML | Spaces: 2</div>
+        </div>
+
+        <!-- Level Complete Modal -->
+        <div id="level-modal" class="overlay hidden flex-col">
+            <div class="bg-slate-800 border-2 border-sky-500 rounded-xl p-8 max-w-md text-center shadow-[0_0_30px_rgba(56,189,248,0.3)]">
+                <h2 id="modal-title" class="text-3xl font-bold text-emerald-400 mb-4">BUG SQUASHED!</h2>
+                <p id="modal-desc" class="text-slate-300 mb-6 text-lg">Great job finding the missing tag.</p>
+                <button onclick="nextLevel()" id="next-btn" class="px-6 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded transition-colors w-full">
+                    PROCEED TO NEXT LEVEL
+                </button>
+            </div>
+        </div>
+        
+        <!-- Game Over Modal -->
+        <div id="game-over-modal" class="overlay hidden flex-col">
+            <div class="bg-slate-800 border-2 border-sky-500 rounded-xl p-8 max-w-md text-center">
+                <h2 class="text-3xl title-font text-sky-400 mb-6">DEBUG COMPLETE</h2>
+                <p class="text-slate-300 mb-2 text-xl">Final Score:</p>
+                <div id="final-score" class="text-5xl font-bold text-emerald-400 mb-8 title-font">0</div>
+                <p class="text-slate-400 mb-8">You've mastered the HTML Boilerplate fundamentals!</p>
+                <button onclick="location.reload()" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded transition-colors w-full">
+                    REBOOT SYSTEM
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- GAME DATA: 10 Levels (Easy to Hard) ---
+        const levels = [
+            { // Level 1: Easy missing slash
+                hint: "Look for a missing character in a closing tag.",
+                lines: [
+                    "<!DOCTYPE html>",
+                    "<html lang=\"en\">",
+                    "<head>",
+                    "  <meta charset=\"UTF-8\">",
+                    "  <title>My First Webpage<title>", // ERROR
+                    "</head>",
+                    "<body>",
+                    "  <h1>Hello World</h1>",
+                    "</body>",
+                    "</html>"
+                ],
+                errorLineIndex: 4,
+                fix: "  <title>My First Webpage</title>",
+                explanation: "Closing tags must always include a forward slash (/) before the tag name."
+            },
+            { // Level 2: Easy typo
+                hint: "The very first line seems a bit short...",
+                lines: [
+                    "<!DOCTYP html>", // ERROR
+                    "<html lang=\"en\">",
+                    "<head>",
+                    "  <title>Document</title>",
+                    "</head>",
+                    "<body>",
+                    "  <p>Learning HTML!</p>",
+                    "</body>",
+                    "</html>"
+                ],
+                errorLineIndex: 0,
+                fix: "<!DOCTYPE html>",
+                explanation: "The document type declaration is spelled &lt;!DOCTYPE html&gt;."
+            },
+            { // Level 3: Missing quote
+                hint: "Attributes need their values wrapped in quotes.",
+                lines: [
+                    "<!DOCTYPE html>",
+                    "<html lang=\"en\">",
+                    "<head>",
+                    "  <meta charset=\"UTF-8>", // ERROR
+                    "  <title>Home</title>",
+                    "</head>",
+                    "<body>",
+                    "</body>",
+                    "</html>"
+                ],
+                errorLineIndex: 3,
+                fix: "  <meta charset=\"UTF-8\">",
+                explanation: "Attribute values like \"UTF-8\" must be enclosed in opening and closing quotation marks."
+            },
+            { // Level 4: Wrong self-closing syntax
+                hint: "How do we link external CSS files properly?",
+                lines: [
+                    "<!DOCTYPE html>",
+                    "<html lang=\"en\">",
+                    "<head>",
+                    "  <meta charset=\"UTF-8\">",
+                    "  <title>Styling</title>",
+                    "  <link rel=\"stylesheet\" href=\"style.css\"", // ERROR
+                    "</head>",
+                    "<body>",
+                    "</body>",
+                    "</html>"
+                ],
+                errorLineIndex: 5,
+                fix: "  <link rel=\"stylesheet\" href=\"style.css\">",
+                explanation: "The &lt;link&gt; tag needs a closing angle bracket '>'."
+            },
+            { // Level 5: Nesting error
+                hint: "Tags must close in the reverse order they were opened (First In, Last Out).",
+                lines: [
+                    "<!DOCTYPE html>",
+                    "<html>",
+                    "<head>",
+                    "  <title>Nesting</title>",
+                    "</head>",
+                    "<body>",
+                    "  <p>This text is <strong>bold</p></strong>", // ERROR
+                    "</body>",
+                    "</html>"
+                ],
+                errorLineIndex: 6,
+                fix: "  <p>This text is <strong>bold</strong></p>",
+                explanation: "Improper nesting! &lt;strong&gt; was opened inside &lt;p&gt;, so &lt;strong&gt; must be closed BEFORE &lt;/p&gt;."
+            },
+            { // Level 6: Wrong attribute name
+                hint: "Scripts use a different attribute than links to point to files.",
+                lines: [
+                    "<!DOCTYPE html>",
+                    "<html lang=\"en\">",
+                    "<head>",
+                    "  <title>JS Game</title>",
+                    "</head>",
+                    "<body>",
+                    "  <h1>Play Now</h1>",
+                    "  <script href=\"main.js\"><\/script>", // ERROR - Escaped forward slash
+                    "</body>",
+                    "</html>"
+                ],
+                errorLineIndex: 7,
+                fix: "  <script src=\"main.js\"><\/script>", // Escaped forward slash
+                explanation: "The &lt;script&gt; tag uses the 'src' (source) attribute, not 'href' (hypertext reference)."
+            },
+            { // Level 7: Structural placement
+                hint: "Where does the title of the browser tab belong?",
+                lines: [
+                    "<!DOCTYPE html>",
+                    "<html lang=\"en\">",
+                    "<head>",
+                    "  <meta charset=\"UTF-8\">",
+                    "</head>",
+                    "<body>",
+                    "  <title>My Portfolio</title>", // ERROR
+                    "  <h1>Welcome to my site</h1>",
+                    "</body>",
+                    "</html>"
+                ],
+                errorLineIndex: 6,
+                fix: "  <!-- Moved <title> to <head> -->", 
+                explanation: "The &lt;title&gt; tag contains metadata and MUST be placed inside the &lt;head&gt; section, not the &lt;body&gt;."
+            },
+            { // Level 8: Language attribute
+                hint: "Check how we tell the browser the language of the page.",
+                lines: [
+                    "<!DOCTYPE html>",
+                    "<html language=\"en\">", // ERROR
+                    "<head>",
+                    "  <meta charset=\"UTF-8\">",
+                    "  <title>English Site</title>",
+                    "</head>",
+                    "<body>",
+                    "  <p>Hello!</p>",
+                    "</body>",
+                    "</html>"
+                ],
+                errorLineIndex: 1,
+                fix: "<html lang=\"en\">",
+                explanation: "The correct attribute to declare the language in the &lt;html&gt; tag is 'lang', not 'language'."
+            },
+            { // Level 9: Wrong closing tag name
+                hint: "Make sure the tag you open matches the one you close exactly.",
+                lines: [
+                    "<!DOCTYPE html>",
+                    "<html lang=\"en\">",
+                    "<head>",
+                    "  <meta charset=\"UTF-8\">",
+                    "  <title>About Me</title>",
+                    "</header>", // ERROR
+                    "<body>",
+                    "  <h2>About</h2>",
+                    "</body>",
+                    "</html>"
+                ],
+                errorLineIndex: 5,
+                fix: "</head>",
+                explanation: "You opened a &lt;head&gt; tag, but tried to close it with a &lt;/header&gt; tag."
+            },
+            { // Level 10: Viewport syntax (Hard)
+                hint: "Look very closely at the punctuation inside the content attribute of the viewport meta tag.",
+                lines: [
+                    "<!DOCTYPE html>",
+                    "<html lang=\"en\">",
+                    "<head>",
+                    "  <meta charset=\"UTF-8\">",
+                    "  <meta name=\"viewport\" content=\"width=device-width initial-scale=1.0\">", // ERROR
+                    "  <title>Responsive Site</title>",
+                    "</head>",
+                    "<body>",
+                    "  <main>Content</main>",
+                    "</body>",
+                    "</html>"
+                ],
+                errorLineIndex: 4,
+                fix: "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
+                explanation: "The content attribute in the viewport meta tag requires a comma (,) to separate properties."
+            }
+        ];
+
+        // --- GAME STATE ---
+        let currentLevelIndex = 0;
+        let score = 0;
+        let isLevelComplete = false;
+        let pointsPossible = 100;
+
+        // --- DOM ELEMENTS ---
+        const codeArea = document.getElementById('code-area');
+        const uiLevel = document.getElementById('ui-level');
+        const uiScore = document.getElementById('ui-score');
+        const feedbackMsg = document.getElementById('feedback-msg');
+        const levelModal = document.getElementById('level-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const finalScoreEl = document.getElementById('final-score');
+        const startScreen = document.getElementById('start-screen');
+
+        // --- AUDIO SYSTEM (Web Audio API) ---
+        let audioCtx;
+        let isMusicPlaying = false;
+        let musicInterval;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Simple procedural beep
+        function playTone(freq, type, duration, vol=0.1) {
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playCorrectSound() {
+            playTone(600, 'sine', 0.1, 0.2);
+            setTimeout(() => playTone(800, 'sine', 0.2, 0.2), 100);
+        }
+
+        function playWrongSound() {
+            playTone(200, 'sawtooth', 0.3, 0.2);
+        }
+
+        // Procedural Background Music (Chiptune style arpeggio)
+        const notes = [261.63, 329.63, 392.00, 523.25]; // C E G C
+        let noteIndex = 0;
+        
+        function bgmTick() {
+            if(!isMusicPlaying) return;
+            playTone(notes[noteIndex] / 2, 'square', 0.15, 0.02); // Bass
+            if(Math.random() > 0.5) {
+                playTone(notes[(noteIndex + 2) % notes.length], 'sine', 0.1, 0.03); // Melody
+            }
+            noteIndex = (noteIndex + 1) % notes.length;
+        }
+
+        function toggleMusic() {
+            const btn = document.getElementById('music-btn');
+            if (isMusicPlaying) {
+                isMusicPlaying = false;
+                clearInterval(musicInterval);
+                btn.innerHTML = '🔇';
+                btn.classList.add('text-slate-500');
+            } else {
+                initAudio();
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                isMusicPlaying = true;
+                musicInterval = setInterval(bgmTick, 250); // 240 BPM (16ths)
+                btn.innerHTML = '🔊';
+                btn.classList.remove('text-slate-500');
+            }
+        }
+
+        // --- GAME LOGIC ---
+
+        function startGame() {
+            initAudio();
+            audioCtx.resume(); // Ensure context is running after user gesture
+            startScreen.classList.add('hidden');
+            toggleMusic(); // Start music
+            loadLevel(0);
+        }
+
+        // Simple syntax highlighting function
+        function highlightHTML(codeStr) {
+            // Escape HTML entities first to prevent rendering
+            let str = codeStr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            // Highlight Strings ("value")
+            str = str.replace(/(&quot;.*?&quot;|&#34;.*?&#34;|".*?")/g, '<span class="hl-string">$1</span>');
+            
+            // Highlight Attributes (name=)
+            str = str.replace(/([a-zA-Z\-]+)(=)/g, '<span class="hl-attr">$1</span><span class="hl-angle">$2</span>');
+            
+            // Highlight Tags (<tag_name)
+            str = str.replace(/(&lt;\/?)([a-zA-Z0-9]+)/g, '<span class="hl-angle">$1</span><span class="hl-tag">$2</span>');
+            
+            // Highlight closing brackets
+            str = str.replace(/(&gt;)/g, '<span class="hl-angle">$1</span>');
+
+            return str;
+        }
+
+        function loadLevel(index) {
+            currentLevelIndex = index;
+            isLevelComplete = false;
+            pointsPossible = 100; // Reset potential points for level
+            
+            const levelData = levels[currentLevelIndex];
+            uiLevel.innerText = currentLevelIndex + 1;
+            
+            // Reset UI
+            feedbackMsg.innerHTML = `<span class="text-sky-300">System Ready.</span> Hint: ${levelData.hint}`;
+            document.getElementById('status-bar').className = "bg-[#007acc] text-white p-2 text-sm z-20 flex justify-between items-center px-4 transition-colors duration-300";
+            
+            // Render Code Lines
+            codeArea.innerHTML = '';
+            levelData.lines.forEach((lineText, i) => {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'code-line';
+                lineDiv.id = `line-${i}`;
+                lineDiv.onclick = () => handleLineClick(i);
+                
+                const numSpan = document.createElement('span');
+                numSpan.className = 'line-number';
+                numSpan.innerText = i + 1;
+                
+                const contentSpan = document.createElement('span');
+                contentSpan.className = 'code-content';
+                contentSpan.innerHTML = highlightHTML(lineText);
+                
+                lineDiv.appendChild(numSpan);
+                lineDiv.appendChild(contentSpan);
+                codeArea.appendChild(lineDiv);
+            });
+        }
+
+        function handleLineClick(lineIndex) {
+            if (isLevelComplete) return;
+
+            const levelData = levels[currentLevelIndex];
+            const lineEl = document.getElementById(`line-${lineIndex}`);
+
+            if (lineIndex === levelData.errorLineIndex) {
+                // Correct Line Found!
+                isLevelComplete = true;
+                playCorrectSound();
+                
+                // Update Score
+                score += pointsPossible;
+                uiScore.innerText = score;
+
+                // Visual Feedback on line
+                lineEl.classList.add('line-correct');
+                
+                // Fix the code visually
+                setTimeout(() => {
+                    const contentSpan = lineEl.querySelector('.code-content');
+                    contentSpan.innerHTML = highlightHTML(levelData.fix);
+                    
+                    // Show Success Modal
+                    showModal('BUG SQUASHED! 🐛🔨', `+${pointsPossible} Points<br><br><span class="text-sky-300 text-sm">${levelData.explanation}</span>`);
+                }, 600); // Wait for pulse animation
+
+                // Status bar feedback
+                document.getElementById('status-bar').classList.replace('bg-[#007acc]', 'bg-emerald-600');
+                feedbackMsg.innerText = "Error successfully resolved.";
+
+            } else {
+                // Wrong Line
+                playWrongSound();
+                pointsPossible = Math.max(10, pointsPossible - 20); // Penalty
+                
+                // Visual shake/flash
+                lineEl.classList.remove('line-wrong');
+                void lineEl.offsetWidth; // trigger reflow
+                lineEl.classList.add('line-wrong');
+
+                // Status bar feedback
+                document.getElementById('status-bar').classList.replace('bg-[#007acc]', 'bg-red-600');
+                feedbackMsg.innerText = "Syntax intact on this line. Keep searching.";
+                
+                // Revert status bar color after a moment
+                setTimeout(() => {
+                    if(!isLevelComplete) {
+                        document.getElementById('status-bar').classList.replace('bg-red-600', 'bg-[#007acc]');
+                        feedbackMsg.innerHTML = `<span class="text-sky-300">Scanning...</span> Hint: ${levelData.hint}`;
+                    }
+                }, 2000);
+            }
+        }
+
+        function showModal(title, descHtml) {
+            modalTitle.innerText = title;
+            modalDesc.innerHTML = descHtml;
+            levelModal.classList.remove('hidden');
+        }
+
+        function nextLevel() {
+            levelModal.classList.add('hidden');
+            if (currentLevelIndex + 1 < levels.length) {
+                loadLevel(currentLevelIndex + 1);
+            } else {
+                showGameOver();
+            }
+        }
+
+        function showGameOver() {
+            finalScoreEl.innerText = score;
+            gameOverModal.classList.remove('hidden');
+            if(isMusicPlaying) toggleMusic(); // stop music on end
+            // Play victory arpeggio
+            setTimeout(() => {
+                initAudio();
+                let time = audioCtx.currentTime;
+                [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.frequency.value = freq;
+                    osc.type = 'sine';
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    gain.gain.setValueAtTime(0.1, time + (i * 0.1));
+                    gain.gain.exponentialRampToValueAtTime(0.01, time + (i * 0.1) + 0.3);
+                    osc.start(time + (i * 0.1));
+                    osc.stop(time + (i * 0.1) + 0.3);
+                });
+            }, 500);
+        }
+
+        // Initialize UI values
+        uiScore.innerText = "0";
+    </script>
+</body>
+</html>
